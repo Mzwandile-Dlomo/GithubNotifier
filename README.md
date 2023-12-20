@@ -5,8 +5,7 @@ GitHub Notifier is a simple Python script that notifies you about new activities
 # Installation
     Ensure you have Python installed on your system. You can install the required packages using the following command:
 
-    pip install requests plyer python-dotenv
-
+    pip freeze > requirements.txt
 
 
 # Configuration
