@@ -1,4 +1,7 @@
 __pycache__
 .env
 venv/
-seen_event_ids.txt
+
+# Ignore executables
+*.exe
+*.out
