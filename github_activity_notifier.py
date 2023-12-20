@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import requests
 from plyer import notification
 import time
+from datetime import datetime, timedelta, timezone
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -26,45 +27,39 @@ def get_seen_event_ids():
     else:
         return set()
 
-def save_seen_event_id(event_id):
-    # Save seen event ID to a file
-    seen_event_ids_file = "seen_event_ids.txt"
-    with open(seen_event_ids_file, "a") as file:
-        file.write(f"{event_id}\n")
 
-def notify_activity(owner, repo, seen_event_ids):
+def notify_activity(owner, repo):
     activity = get_github_activity(owner, repo)
 
     if activity:
-        for event in activity:
-            event_id = event['id']
-            if event_id not in seen_event_ids:
-                # seen_event_ids.add(event_id)
-                save_seen_event_id(event_id)
-                
-                if event['type'] in ['IssuesEvent', 'PullRequestEvent', 'ReleaseEvent']:
-                    title = f"New {event['type']} in {owner}/{repo}"
-                    description = event['payload']['action'] if 'action' in event['payload'] else 'New Activity'
-                    body = f"Description: {description}\n\n"
-                    
-                    if 'issue' in event['payload']:
-                        body += f"Issue Title: {event['payload']['issue']['title']}\n"
-                        body += f"Issue URL: {event['payload']['issue']['html_url']}\n"
-                    
-                    if 'pull_request' in event['payload']:
-                        body += f"Pull Request Title: {event['payload']['pull_request']['title']}\n"
-                        body += f"Pull Request URL: {event['payload']['pull_request']['html_url']}\n"
-                    
-                    if 'release' in event['payload']:
-                        body += f"Release Name: {event['payload']['release']['name']}\n"
-                        body += f"Release URL: {event['payload']['release']['html_url']}\n"
+        for event in activity:    
+            created_at = event['created_at']
+            event_timestamp = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
-                    notification.notify(
-                        title=title,
-                        message=body,
-                        app_icon=None,
-                        timeout=10,
-                    )
+            # Only show notifications for events that occurred after the current time minus a specific duration (e.g., 1 hour)
+            if event_timestamp > datetime.now(timezone.utc) - timedelta(hours=1):
+                title = f"New {event['type']} in {owner}/{repo}"
+                description = event['payload']['action'] if 'action' in event['payload'] else 'New Activity'
+                body = f"Description: {description}\n\n"
+                
+                if 'issue' in event['payload']:
+                    body += f"Issue Title: {event['payload']['issue']['title']}\n"
+                    body += f"Issue URL: {event['payload']['issue']['html_url']}\n"
+                
+                if 'pull_request' in event['payload']:
+                    body += f"Pull Request Title: {event['payload']['pull_request']['title']}\n"
+                    body += f"Pull Request URL: {event['payload']['pull_request']['html_url']}\n"
+                
+                if 'release' in event['payload']:
+                    body += f"Release Name: {event['payload']['release']['name']}\n"
+                    body += f"Release URL: {event['payload']['release']['html_url']}\n"
+
+                notification.notify(
+                    title=title,
+                    message=body,
+                    app_icon=None,
+                    timeout=10,
+                )
 
 
 def get_user_repositories(username):
@@ -83,12 +78,10 @@ def main():
     github_username = os.getenv("GITHUB_USERNAME")
     repositories = get_user_repositories(github_username)
 
-    seen_event_ids = get_seen_event_ids()
-
 
     while True:
         for repo in repositories:
-            notify_activity(github_username, repo, seen_event_ids)
+            notify_activity(github_username, repo)
 
         # Check for updates every 5 minutes (adjust as needed)
         time.sleep(300)
